@@ -1,50 +1,14 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const express = require('express');
+const router = express.Router();
+const { register, login, getMe } = require('../controllers/authController');
+const { protect } = require('../middleware/auth');
+const { registerValidation, loginValidation, validate } = require('../middleware/validation');
 
-// Protect routes - verify JWT token
-exports.protect = async (req, res, next) => {
-    let token;
+// Public routes
+router.post('/register', registerValidation, validate, register);
+router.post('/login', loginValidation, validate, login);
 
-    // Check if authorization header exists and starts with Bearer
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        try {
-            // Get token from header
-            token = req.headers.authorization.split(' ')[1];
+// Protected routes
+router.get('/me', protect, getMe);
 
-            // Verify token
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-            // Get user from token (exclude password)
-            req.user = await User.findById(decoded.id).select('-password');
-
-            if (!req.user) {
-                return res.status(401).json({ message: 'User not found' });
-            }
-
-            next();
-        } catch (error) {
-            console.error(error);
-            return res.status(401).json({ message: 'Not authorized, token failed' });
-        }
-    }
-
-    if (!token) {
-        return res.status(401).json({ message: 'Not authorized, no token' });
-    }
-};
-
-// Check if user is creator or admin
-exports.authorizeCreator = (req, res, next) => {
-    if (req.user.role !== 'creator' && req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Not authorized as a creator' });
-    }
-    next();
-};
-
-// Check if user is admin
-exports.authorizeAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Not authorized as an admin' });
-    }
-    next();
-};
+module.exports = router;
